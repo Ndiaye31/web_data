@@ -19,7 +19,7 @@ app.layout = html.Div([
     dcc.Dropdown(
         id="dropdown-region",
         options=[{"label": "Toutes", "value": "Toutes"}] + [{"label": region, "value": region} for region in df["Région"].unique()],
-        value="Nord",
+        value="Toutes",
         style={"width": "50%", "margin-bottom": "10px"},
         clearable=False,
         placeholder="Sélectionner une région"
@@ -28,30 +28,44 @@ app.layout = html.Div([
     dcc.Dropdown(
         id="dropdown-produit",
         options=[{"label": "Toutes", "value": "Toutes"}] + [{"label": produit, "value": produit} for produit in df["Produit"].unique()],
-        value="Oranges",
+        value="Toutes",
         style={"width": "50%", "margin-bottom": "10px"},
         clearable=False,
         placeholder="Sélectionner un produit"
     ),
+    html.Label("Durée du message de réinitialisation (secondes) :"),
+    dcc.Dropdown(
+        id="dropdown-duree",
+        options=[
+            {"label": "2 secondes", "value": 2000},
+            {"label": "3 secondes", "value": 3000},
+            {"label": "5 secondes", "value": 5000}
+        ],
+        value=3000,  # Par défaut : 3 secondes
+        style={"width": "50%", "margin-bottom": "10px"},
+        clearable=False
+    ),
     html.Button("Réinitialiser", id="reset-button", n_clicks=0, style={"margin-top": "10px"}),
-    html.Div(id="reset-message", style={"color": "green", "margin-top": "10px"}),
+    html.Div(id="reset-message", style={"color": "green","margin-top": "10px","transition": "opacity 0.5s ease-out"}),
     dcc.Interval(id="reset-timer", interval=3000, n_intervals=0, disabled=True),
     dcc.Graph(id="graphique-ventes")
 ])
 
-# Callback pour mettre à jour le graphique, les dropdowns et le message
+# Callback pour mettre à jour le graphique, les dropdowns, le message et le timer
 @app.callback(
     Output("graphique-ventes", "figure"),
     Output("dropdown-region", "value"),
     Output("dropdown-produit", "value"),
     Output("reset-message", "children"),
     Output("reset-timer", "disabled"),
+    Output("reset-timer", "interval"),
     Input("dropdown-region", "value"),
     Input("dropdown-produit", "value"),
     Input("reset-button", "n_clicks"),
-    Input("reset-timer", "n_intervals")
+    Input("reset-timer", "n_intervals"),
+    Input("dropdown-duree", "value")
 )
-def update_graph(selected_region, selected_product, n_clicks, n_intervals):
+def update_graph(selected_region, selected_product, n_clicks, n_intervals, duree):
     ctx = callback_context
     reset_message = ""
     timer_disabled = True
@@ -75,15 +89,15 @@ def update_graph(selected_region, selected_product, n_clicks, n_intervals):
                 "xaxis": {"title": "Produit"},
                 "yaxis": {"title": "Ventes"}
             }
-        }, selected_region, selected_product, reset_message, timer_disabled
+        }, selected_region, selected_product, reset_message, timer_disabled, duree
     
     # Filtrer selon la région et le produit
     if selected_region == "Toutes" and selected_product == "Toutes":
-        filtered_df = df
+        filtered_df = df.groupby(["Produit", "Région"])["Ventes"].sum().reset_index()
     elif selected_region == "Toutes":
         filtered_df = df[df["Produit"] == selected_product]
     elif selected_product == "Toutes":
-        filtered_df = df[df["Région"] == selected_region]
+        filtered_df = df[df["Région"] == selected_region].groupby("Produit")["Ventes"].sum().reset_index()
     else:
         filtered_df = df[(df["Région"] == selected_region) & (df["Produit"] == selected_product)]
     
@@ -92,11 +106,12 @@ def update_graph(selected_region, selected_product, n_clicks, n_intervals):
         return {
             "data": [],
             "layout": {
-                "title": f"Aucune vente enregistrée pour {selected_product} dans la région {selected_region}",
+                "title": f"Aucune vente enregistrée pour {'tous les produits' if selected_product == 'Toutes' else selected_product} "
+                         f"dans {'toutes les régions' if selected_region == 'Toutes' else 'la région ' + selected_region}",
                 "xaxis": {"title": "Produit"},
                 "yaxis": {"title": "Ventes"}
             }
-        }, selected_region, selected_product, reset_message, timer_disabled
+        }, selected_region, selected_product, reset_message, timer_disabled, duree
     
     # Créer le graphique
     fig = px.bar(
@@ -106,7 +121,7 @@ def update_graph(selected_region, selected_product, n_clicks, n_intervals):
         title=f"Ventes de {'tous les produits' if selected_product == 'Toutes' else selected_product} "
               f"{'dans toutes les régions' if selected_region == 'Toutes' else 'dans la région ' + selected_region}"
     )
-    return fig, selected_region, selected_product, reset_message, timer_disabled
+    return fig, selected_region, selected_product, reset_message, timer_disabled, duree
 
 # Lancer l'application
 if __name__ == "__main__":
