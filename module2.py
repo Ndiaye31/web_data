@@ -1,4 +1,4 @@
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html, dcc, Input, Output, callback_context
 import plotly.express as px
 import pandas as pd
 
@@ -24,6 +24,14 @@ app.layout = html.Div([
         clearable=False,
         placeholder="Sélectionner un pays"
     ),
+    html.Button("Réinitialiser", id="reset-button", n_clicks=0, style={"margin-top": "10px"}),
+    html.Div("Filtres réinitialisés !", id="reset-message", style={
+        "color": "green",
+        "margin-top": "10px",
+        "transition": "opacity 0.5s ease-out",
+        "opacity": 0
+    }),
+    dcc.Interval(id="reset-timer", interval=3000, n_intervals=0, disabled=True),
     dcc.Graph(id="graphique-barres"),
     html.Label("Détails des exportations par catégorie :"),
     dcc.Graph(id="graphique-scatter")
@@ -33,10 +41,30 @@ app.layout = html.Div([
 @app.callback(
     Output("graphique-barres", "figure"),
     Output("graphique-scatter", "figure"),
+    Output("dropdown-pays", "value"),
+    Output("reset-message", "style"),
+    Output("reset-timer", "disabled"),
+    Output("reset-timer", "interval"),
     Input("graphique-barres", "clickData"),
-    Input("dropdown-pays", "value")
+    Input("dropdown-pays", "value"),
+    Input("reset-button", "n_clicks"),
+    Input("reset-timer", "n_intervals")
 )
-def update_graphs(click_data, selected_pays):
+def update_graphs(click_data, selected_pays, n_clicks, n_intervals):
+    ctx = callback_context
+    message_style = {"color": "green", "margin-top": "10px", "transition": "opacity 0.5s ease-out", "opacity": 0}
+    timer_disabled = True
+    duree = 3000  # Durée par défaut (en ms)
+    
+    # Réinitialiser si le bouton est cliqué
+    if ctx.triggered_id == "reset-button":
+        selected_pays = "Toutes"
+        message_style["opacity"] = 1
+        timer_disabled = False
+    elif ctx.triggered_id == "reset-timer":
+        message_style["opacity"] = 0
+        timer_disabled = True
+    
     # Graphique à barres (exportations totales par pays)
     if selected_pays == "Toutes":
         df_bar = df.groupby("Pays")["Exportations"].sum().reset_index()
@@ -46,7 +74,7 @@ def update_graphs(click_data, selected_pays):
     
     # Graphique scatter (détails par catégorie pour le pays sélectionné)
     if click_data is None and selected_pays == "Toutes":
-        return fig_bar, {
+        fig_scatter = {
             "data": [],
             "layout": {
                 "title": "Cliquez sur un pays ou sélectionnez un pays dans le dropdown",
@@ -54,28 +82,19 @@ def update_graphs(click_data, selected_pays):
                 "yaxis": {"title": "Exportations"}
             }
         }
-    
-    # Déterminer le pays à afficher dans le scatter
-    if click_data is not None:
-        pays = click_data["points"][0]["x"]
-    elif selected_pays != "Toutes":
-        pays = selected_pays
     else:
-        return fig_bar, {
-            "data": [],
-            "layout": {
-                "title": "Cliquez sur un pays ou sélectionnez un pays dans le dropdown",
-                "xaxis": {"title": "Catégorie"},
-                "yaxis": {"title": "Exportations"}
-            }
-        }
+        # Déterminer le pays à afficher dans le scatter
+        if click_data is not None:
+            pays = click_data["points"][0]["x"]
+        else:
+            pays = selected_pays
+        
+        filtered_df = df[df["Pays"] == pays]
+        fig_scatter = px.scatter(filtered_df, x="Catégorie", y="Exportations", 
+                                title=f"Exportations de {pays} par catégorie",
+                                size="Exportations", color="Catégorie")
     
-    filtered_df = df[df["Pays"] == pays]
-    fig_scatter = px.scatter(filtered_df, x="Catégorie", y="Exportations", 
-                            title=f"Exportations de {pays} par catégorie",
-                            size="Exportations", color="Catégorie")
-    
-    return fig_bar, fig_scatter
+    return fig_bar, fig_scatter, selected_pays, message_style, timer_disabled, duree
 
 # Lancer l'application
 if __name__ == "__main__":
