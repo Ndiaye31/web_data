@@ -17,15 +17,17 @@ app.layout = html.Div([
     html.H1("Dashboard des Ventes de Fruits"),
     dcc.Dropdown(
         id="dropdown-region",
-        options=[{"label": region, "value": region} for region in df["Région"].unique()],
-        value="Nord",
-        style={"width": "50%", "margin-bottom": "10px"}
+        options=[{"label": "Toutes", "value": "Toutes"}] + [{"label": region, "value": region} for region in df["Région"].unique()],
+        value="Nord",  # Valeur par défaut
+        style={"width": "50%", "margin-bottom": "10px"},
+        placeholder="Sélectionner une région"
     ),
     dcc.Dropdown(
         id="dropdown-produit",
         options=[{"label": produit, "value": produit} for produit in df["Produit"].unique()],
-        value="Pommes",
-        style={"width": "50%"}
+        value="Oranges",  # Valeur par défaut
+        style={"width": "50%"},
+        placeholder="Sélectionner un produit"
     ),
     dcc.Graph(id="graphique-ventes")
 ])
@@ -37,12 +39,24 @@ app.layout = html.Div([
     Input("dropdown-produit", "value")
 )
 def update_graph(selected_region, selected_product):
-    # Filtrer par produit (et éventuellement par région)
-    filtered_df = df[df["Produit"] == selected_product]
-    if selected_region != "Toutes":
-        filtered_df = filtered_df[filtered_df["Région"] == selected_region]
+    # Vérifier si les dropdowns ont des valeurs
+    if selected_region is None or selected_product is None:
+        return {
+            "data": [],
+            "layout": {
+                "title": "Veuillez sélectionner une région et un produit",
+                "xaxis": {"title": "Produit"},
+                "yaxis": {"title": "Ventes"}
+            }
+        }
     
-    # Gestion du cas où le DataFrame est vide
+    # Filtrer selon la région et le produit
+    if selected_region == "Toutes":
+        filtered_df = df[df["Produit"] == selected_product]
+    else:
+        filtered_df = df[(df["Région"] == selected_region) & (df["Produit"] == selected_product)]
+    
+    # Gérer les cas où le DataFrame est vide
     if filtered_df.empty:
         return {
             "data": [],
@@ -54,8 +68,12 @@ def update_graph(selected_region, selected_product):
         }
     
     # Créer le graphique
-    fig = px.bar(filtered_df, x="Région", y="Ventes", 
-                 title=f"Ventes de {selected_product} dans la région {selected_region}")
+    fig = px.bar(
+        filtered_df,
+        x="Région" if selected_region == "Toutes" else "Produit",
+        y="Ventes",
+        title=f"Ventes de {selected_product} {'dans toutes les régions' if selected_region == 'Toutes' else 'dans la région ' + selected_region}"
+    )
     return fig
 
 # Lancer l'application
