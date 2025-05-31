@@ -21,7 +21,7 @@ app.layout = html.Div([
         options=[{"label": "Toutes", "value": "Toutes"}] + [{"label": region, "value": region} for region in df["Région"].unique()],
         value="Toutes",
         style={"width": "50%", "margin-bottom": "10px"},
-        clearable=False,
+
         placeholder="Sélectionner une région"
     ),
     html.Label("Sélectionner un produit :"),
@@ -30,7 +30,7 @@ app.layout = html.Div([
         options=[{"label": "Toutes", "value": "Toutes"}] + [{"label": produit, "value": produit} for produit in df["Produit"].unique()],
         value="Toutes",
         style={"width": "50%", "margin-bottom": "10px"},
-        clearable=False,
+
         placeholder="Sélectionner un produit"
     ),
     html.Label("Durée du message de réinitialisation (secondes) :"),
