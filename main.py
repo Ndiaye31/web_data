@@ -46,7 +46,7 @@ app.layout = html.Div([
         clearable=False
     ),
     html.Button("Réinitialiser", id="reset-button", n_clicks=0, style={"margin-top": "10px"}),
-    html.Div(id="reset-message", style={"color": "green","margin-top": "10px","transition": "opacity 0.5s ease-out"}),
+    html.Div(id="reset-message", style={"color": "green", "margin-top": "10px", "transition": "opacity 0.5s ease-out"}),
     dcc.Interval(id="reset-timer", interval=3000, n_intervals=0, disabled=True),
     dcc.Graph(id="graphique-ventes")
 ])
